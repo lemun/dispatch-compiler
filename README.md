@@ -1,1 +1,218 @@
 # dispatch-compiler
+
+Compile fuzzy findings into proof-gated issues that parallel coding agents can
+ship safely.
+
+Works with **Claude Code, Codex, Cursor, and any agent that reads Markdown** —
+it's an [Agent Skills](https://agentskills.io)–format skill plus plain-Markdown
+templates. Tracker-agnostic: GitHub Issues, Linear, or a folder of files.
+
+## The problem
+
+Generation is cheap now. The bottleneck is everything around it: deciding what
+should change, proving a finding is real before an agent spends an afternoon
+on it, carving work so five parallel lanes merge cleanly, and verifying the
+result. Most parallel-agent failures happen **before dispatch** — the task was
+vague, too big, unverified, or secretly contained a product decision.
+
+`dispatch-compiler` is the compile step between "something is off" and "an
+agent can own this." It takes a messy input — an owner complaint, a review, a
+research finding, a screenshot, a log — and lowers it into small,
+evidence-backed, confidence-labeled issues with explicit proof gates and lane
+boundaries. The name is literal: **dispatch** (work packets assignable to
+agent lanes) + **compiler** (lower fuzzy input into typed, executable issues).
+
+## Before and after
+
+Input — a real-shaped owner issue:
+
+> **#214 — Settings area feels off**
+> Billing page took forever to load when I checked yesterday, and I'm pretty
+> sure sign-out is broken from the settings screen. Also the whole settings
+> area looks dated compared to the new dashboard. Can an agent clean this up?
+
+Sent to an agent as-is, that becomes one giant unfocused PR plus a guess about
+what "dated" means. Compiled, it becomes:
+
+| Issue | Label | Why |
+|---|---|---|
+| Fix broken sign-out action | `ready` | Reproduced live, traced to a stale route constant, test named |
+| Paginate invoice query (6.2s → <1.5s) | `ready` | Profiled, high-risk billing surface, frontier-owned lane |
+| Decide visual direction for settings | `needs-grill` | "Looks dated" is taste — owner picks from 3 concrete options |
+| Approve seeded-data policy for staging | `owner` | Data-governance call surfaced during profiling — human-only |
+
+The two `ready` issues are file-disjoint and dispatch to parallel lanes today.
+The restyle is explicitly sequenced after the pagination fix because both
+touch the same page. The full pass — every issue body, calibration block, and
+the closeout comment — is in
+[examples/worked-example.md](examples/worked-example.md). A second example,
+starting from a flaky CI log with no runtime access at all, is in
+[examples/worked-example-ci-log.md](examples/worked-example-ci-log.md).
+
+## Quick start
+
+```bash
+git clone https://github.com/lemun/dispatch-compiler.git
+```
+
+Install as a skill (pick your harness — the format is the same file):
+
+```bash
+# Claude Code
+mkdir -p ~/.claude/skills
+ln -s "$PWD/dispatch-compiler" ~/.claude/skills/dispatch-compiler
+
+# Codex
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
+ln -s "$PWD/dispatch-compiler" "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler"
+
+# Anything else (Cursor, Gemini CLI, OpenCode, ...)
+# Either use your harness's skills directory, or just paste SKILL.md into
+# context and point the agent at templates/.
+```
+
+Create the four labels in a target repo (skip if you use different names —
+the workflow only needs the four states, not these exact strings):
+
+```bash
+gh label create ready       --description "Dispatchable by an agent now" --color 2ea44f
+gh label create needs-grill --description "Real finding, awaiting owner judgment" --color f9d0c4
+gh label create blocked     --description "Dispatchable once a named condition clears" --color d73a4a
+gh label create owner       --description "Human-only action or decision" --color bfdadc
+```
+
+Then run it:
+
+```text
+Use the dispatch-compiler skill on GitHub issue #123.
+Source repo: /path/to/repo.
+Project profile: profiles/my-project.md if present.
+Gather live evidence if practical. If runtime is blocked, use code-grounded or
+artifact-grounded evidence and say what blocked runtime proof.
+File successor issues directly and close out the source issue with the
+closeout template.
+```
+
+## What a compiled issue contains
+
+Every successor issue is built from
+[templates/successor-issue.md](templates/successor-issue.md) and must carry:
+
+- **Evidence with origin** — where the finding came from:
+  `owner-ratified`, `live-walked` (observed in the running product),
+  `code-grounded`, `artifact-grounded` (screenshot / log / recording), or
+  `autonomous` (the agent inferred it — defaults to `needs-grill`).
+- **Concrete anchors** — file paths, routes, UI strings, commands,
+  screenshots. No anchor, no issue.
+- **Scope boundaries** — in/out of scope, so the diff stays PR-sized.
+- **A proof gate** — the command, test, screenshot, or manual walk that
+  proves the work is done. This is the answer to "verification is the
+  bottleneck": every issue ships with its own verification plan.
+- **Parallel-safety notes** — file ownership, collision risk, and sequencing
+  edges ("waits for #217"), so lanes stay one-file-one-owner.
+- **A dispatch calibration block** ([template](templates/dispatch-calibration.md)):
+
+```markdown
+## Dispatch calibration
+
+- Origin:
+- Confidence:
+- Complexity:
+- Risk:
+- Cost posture:
+- Recommended Claude lane + effort:
+- Recommended Codex lane + effort:
+- Helper agents:
+- Parallel safety:
+- Escalation triggers:
+- Proof gate:
+```
+
+Calibration is the cost-control mechanism, and it optimizes for **mergeable
+output, not cheap model calls**. Risk is priced by the cost of a bad patch
+(billing, auth, data), not diff size. Cheap models are great helpers for
+bounded, reversible work — search, log reduction, screenshot inventory — but
+no low-end model owns a shipping lane by default.
+
+## The four states
+
+- **`ready`** — an agent can start now. Reserved for owner-ratified findings
+  or mechanically certain fixes with a concrete proof gate. Easy ≠ certain.
+- **`needs-grill`** — the finding is real but the owner's judgment is
+  missing. "Grill" as in interrogate: the owner gets a crisp decision to
+  make, ideally with concrete options, instead of taste smuggled into a
+  ready ticket.
+- **`blocked`** — shaped enough to dispatch, but a *named* condition must
+  clear first.
+- **`owner`** — human-only: account access, billing choices, policy calls,
+  data governance, release approval.
+
+Keep the set this small. Agents route reliably over four states; they drift
+over twelve.
+
+## Where it sits in a parallel-agent stack
+
+Worktree and lane tools — Conductor, vibe-kanban, uzi, claude-squad, or plain
+`git worktree` — solve *isolation*: each agent gets its own checkout and
+runtime. Your tracker holds the queue. `dispatch-compiler` is the step
+upstream of both: it decides **what enters the queue and in what shape**, so
+that what your lane tool executes is already small, evidenced, verifiable,
+and collision-safe. It writes plain Markdown issues, so there is nothing to
+integrate — if your lane tool can read an issue, it can consume compiled
+output.
+
+## Project profiles
+
+The core workflow stays generic; project policy lives in a profile — required
+test commands, runtime-proof rules, branch conventions, model routing,
+lane-isolation rules, escalation triggers. Start from
+[templates/project-profile.md](templates/project-profile.md); see a filled-in
+example for a mobile team running Conductor-style worktree lanes at
+[profiles/mobile-app-parallel-lanes.example.md](profiles/mobile-app-parallel-lanes.example.md).
+
+## Closeout discipline
+
+A source issue doesn't just get closed — it ends with a dispatch ledger
+([template](templates/source-closeout-comment.md)): successors grouped by
+label, dispatch-now vs waiting, deliberate non-items, unresolved owner calls,
+and evidence inspected. Deliberate non-items matter most: writing down what
+you chose *not* to file is what keeps agent-generated backlogs from silting
+up.
+
+The skill also has explicit **stop conditions**: when code contradicts the
+charter, evidence can't be anchored, the proof gate can't run, or lanes can't
+be made collision-safe, the agent stops and reports instead of manufacturing
+confidence.
+
+## Repo structure
+
+```text
+dispatch-compiler/
+├── SKILL.md                    # the agent workflow (Agent Skills format)
+├── templates/
+│   ├── successor-issue.md
+│   ├── dispatch-calibration.md
+│   ├── source-closeout-comment.md
+│   └── project-profile.md
+├── profiles/
+│   └── mobile-app-parallel-lanes.example.md
+├── examples/
+│   ├── worked-example.md        # fuzzy owner complaint → four issues + closeout
+│   └── worked-example-ci-log.md # flaky CI log, runtime blocked → four issues
+└── LICENSE
+```
+
+## What this does not do
+
+- It does not make model routing automatic.
+- It does not replace owner judgment.
+- It does not guarantee that parallel lanes will merge cleanly.
+- It does not turn weak evidence into ready work.
+
+It gives agents a sharper contract: inspect current state, produce concrete
+evidence, route uncertainty honestly, and leave the board cleaner than you
+found it.
+
+## License
+
+[MIT](LICENSE)
