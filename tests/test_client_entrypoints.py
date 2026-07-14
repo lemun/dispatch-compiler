@@ -9,25 +9,30 @@ CLAUDE_SKILL = CLAUDE_ENTRYPOINT / "SKILL.md"
 CANONICAL_SKILL = ROOT / "calibrate-model-routing" / "SKILL.md"
 CANONICAL_SCRIPTS = ROOT / "calibrate-model-routing" / "scripts"
 
+EXPECTED_CODEX_METADATA = """interface:
+  display_name: "Calibrate Model Routing"
+  short_description: "Refresh Codex and Claude model routing guidance"
+  default_prompt: "Use $calibrate-model-routing to refresh shared model and effort guidance from official sources."
 
-def frontmatter(path: Path) -> str:
-    text = path.read_text()
-    opening, metadata, _body = text.split("---", 2)
-    if opening:
-        raise AssertionError(f"{path} does not begin with YAML frontmatter")
-    return metadata
+policy:
+  allow_implicit_invocation: false
+"""
+
+EXPECTED_CLAUDE_FRONTMATTER = """---
+name: calibrate-model-routing
+description: Refresh the shared Codex and Claude model-routing calibration from current official provider documentation. Use only when the user explicitly invokes this skill after provider model, effort, alias, availability, or guidance changes.
+disable-model-invocation: true
+---
+"""
 
 
 class ClientEntrypointTests(unittest.TestCase):
-    def test_codex_entrypoint_disables_implicit_invocation(self) -> None:
-        self.assertIn(
-            "allow_implicit_invocation: false",
-            CODEX_METADATA.read_text(),
-        )
+    def test_codex_entrypoint_uses_exact_manual_only_metadata(self) -> None:
+        self.assertEqual(CODEX_METADATA.read_text(), EXPECTED_CODEX_METADATA)
 
-    def test_claude_entrypoint_disables_model_invocation(self) -> None:
+    def test_claude_entrypoint_starts_with_exact_manual_only_frontmatter(self) -> None:
         self.assertTrue(CLAUDE_SKILL.is_file(), "Claude SKILL.md is missing")
-        self.assertIn("disable-model-invocation: true", frontmatter(CLAUDE_SKILL))
+        self.assertTrue(CLAUDE_SKILL.read_text().startswith(EXPECTED_CLAUDE_FRONTMATTER))
 
     def test_claude_entrypoint_delegates_to_canonical_paths(self) -> None:
         self.assertTrue(CLAUDE_SKILL.is_file(), "Claude SKILL.md is missing")

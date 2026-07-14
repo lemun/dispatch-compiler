@@ -788,7 +788,7 @@ Run:
 python3 -m unittest discover -s tests -v
 ```
 
-Expected: 8 tests pass.
+Expected: 13 tests pass.
 
 - [ ] **Step 7: Commit compiler integration**
 
@@ -930,7 +930,7 @@ fi
 git diff --check
 ```
 
-Expected: 10 tests pass; `rg` finds no legacy recommendation fields; `git diff
+Expected: 15 tests pass; `rg` finds no legacy recommendation fields; `git diff
 --check` is silent.
 
 - [ ] **Step 5: Re-run skill validation and commit docs**
@@ -1062,4 +1062,4 @@ git diff --check
 git status --short
 ```
 
-Expected: 10 tests pass, diff check is silent, and the repository is clean.
+Expected: 15 tests pass, diff check is silent, and the repository is clean.
