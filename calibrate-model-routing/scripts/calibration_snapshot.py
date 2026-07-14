@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import re
 import sys
 import tempfile
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
+from typing import Iterator
 from urllib.parse import urlparse
 
 
@@ -29,6 +32,7 @@ REQUIRED_FIELDS = (
     "Effort guidance",
     "Routing notes",
 )
+SCALAR_FIELDS = tuple(field for field in REQUIRED_FIELDS if field != "Official sources")
 
 
 class SnapshotError(ValueError):
@@ -90,27 +94,62 @@ def _provider_date(section: str) -> date:
         raise SnapshotError("Verified at must be a valid ISO date") from error
 
 
-def validate_provider_section(provider: str, section: str) -> None:
+def validate_provider_section(
+    provider: str,
+    section: str,
+    today: date | None = None,
+) -> None:
     if provider not in PROVIDERS:
         raise SnapshotError(f"unknown provider: {provider}")
     display = PROVIDERS[provider]
     if not section.startswith(f"## {display}\n"):
         raise SnapshotError(f"section must start with ## {display}")
+
+    field_values: dict[str, str] = {}
     for field in REQUIRED_FIELDS:
-        if not re.search(rf"(?m)^- {re.escape(field)}:", section):
-            raise SnapshotError(f"{display} section missing {field}")
-    _provider_date(section)
-    urls = re.findall(r"https://[^\s>]+", section)
-    if not urls:
-        raise SnapshotError(f"{display} section needs an official source URL")
+        matches = re.findall(
+            rf"(?m)^- {re.escape(field)}:(?P<value>[^\n]*)$",
+            section,
+        )
+        if len(matches) != 1:
+            raise SnapshotError(f"{display} section must contain {field} exactly once")
+        field_values[field] = matches[0]
+
+    for field in SCALAR_FIELDS:
+        if not field_values[field].strip():
+            raise SnapshotError(f"{display} section {field} needs a non-empty value")
+
+    if field_values["Official sources"].strip():
+        raise SnapshotError(f"{display} Official sources must be an indented list")
+    sources_heading = re.search(r"(?m)^- Official sources:[ \t]*\n", section)
+    if sources_heading is None:
+        raise SnapshotError(f"{display} Official sources must be an indented list")
+    source_urls: list[str] = []
+    for line in section[sources_heading.end():].splitlines():
+        source = re.fullmatch(r"[ \t]+-[ \t]+(https://\S+)[ \t]*", line)
+        if not source:
+            break
+        source_urls.append(source.group(1))
+    if not source_urls:
+        raise SnapshotError(
+            f"{display} Official sources needs at least one indented HTTPS URL"
+        )
+
+    verified_at = _provider_date(section)
+    current = today or date.today()
+    if verified_at > current:
+        raise SnapshotError(
+            f"{display} Verified at date cannot be in the future: {verified_at}"
+        )
     allowed = OFFICIAL_DOMAINS[provider]
-    for url in urls:
+    for url in source_urls:
         host = (urlparse(url).hostname or "").lower()
         if not any(host == domain or host.endswith(f".{domain}") for domain in allowed):
             raise SnapshotError(f"source must use an official {display} domain: {url}")
 
 
-def validate_snapshot(snapshot: str) -> None:
+def validate_snapshot(snapshot: str, today: date | None = None) -> None:
+    current = today or date.today()
     _frontmatter(snapshot)
     if "# Model routing calibration\n" not in snapshot:
         raise SnapshotError("snapshot needs the model routing calibration title")
@@ -119,24 +158,34 @@ def validate_snapshot(snapshot: str) -> None:
     if codex_start >= claude_start:
         raise SnapshotError("Codex section must precede Claude section")
     for provider in PROVIDERS:
-        validate_provider_section(provider, provider_section(snapshot, provider))
+        validate_provider_section(
+            provider,
+            provider_section(snapshot, provider),
+            today=current,
+        )
 
 
-def replace_provider(snapshot: str, provider: str, section: str) -> str:
-    validate_snapshot(snapshot)
+def replace_provider(
+    snapshot: str,
+    provider: str,
+    section: str,
+    today: date | None = None,
+) -> str:
+    current = today or date.today()
+    validate_snapshot(snapshot, today=current)
     normalized = section.rstrip() + "\n"
-    validate_provider_section(provider, normalized)
+    validate_provider_section(provider, normalized, today=current)
     start, end = _section_bounds(snapshot, provider)
     separator = "\n" if end < len(snapshot) else ""
     updated = snapshot[:start] + normalized + separator + snapshot[end:]
-    validate_snapshot(updated)
+    validate_snapshot(updated, today=current)
     return updated
 
 
 def stale_providers(snapshot: str, today: date | None = None) -> list[str]:
     fields = _frontmatter(snapshot)
-    validate_snapshot(snapshot)
     current = today or date.today()
+    validate_snapshot(snapshot, today=current)
     limit = int(fields["stale_after_days"])
     return [
         provider
@@ -145,8 +194,12 @@ def stale_providers(snapshot: str, today: date | None = None) -> list[str]:
     ]
 
 
-def atomic_install(path: Path, snapshot: str) -> None:
-    validate_snapshot(snapshot)
+def atomic_install(
+    path: Path,
+    snapshot: str,
+    today: date | None = None,
+) -> None:
+    validate_snapshot(snapshot, today=today)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
     try:
@@ -159,6 +212,18 @@ def atomic_install(path: Path, snapshot: str) -> None:
     finally:
         if temporary and temporary.exists():
             temporary.unlink()
+
+
+@contextmanager
+def _snapshot_lock(path: Path) -> Iterator[None]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = Path(f"{path}.lock")
+    with lock_path.open("a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -187,13 +252,19 @@ def main() -> int:
             return 0
         path = target_path(args.path)
         if args.command == "install":
-            atomic_install(path, Path(args.input).read_text())
+            with _snapshot_lock(path):
+                atomic_install(path, Path(args.input).read_text())
             print(path)
             return 0
         if args.command == "replace-provider":
-            current = path.read_text()
-            updated = replace_provider(current, args.provider, Path(args.input).read_text())
-            atomic_install(path, updated)
+            with _snapshot_lock(path):
+                current = path.read_text()
+                updated = replace_provider(
+                    current,
+                    args.provider,
+                    Path(args.input).read_text(),
+                )
+                atomic_install(path, updated)
             print(path)
             return 0
         if not path.exists():

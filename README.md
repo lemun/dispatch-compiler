@@ -55,29 +55,56 @@ starting from a flaky CI log with no runtime access at all, is in
 git clone https://github.com/lemun/dispatch-compiler.git
 ```
 
-Install as a skill (pick your harness — the format is the same file):
+Install the compiler and optional calibrator for both harnesses. The helper is
+safe to rerun: it accepts only an existing symlink with the exact intended
+target and refuses every mismatch or non-symlink collision.
 
 ```bash
-# Claude Code
-mkdir -p ~/.claude/skills
-ln -s "$PWD/dispatch-compiler" ~/.claude/skills/dispatch-compiler
+# Install all four skill links with collision checks
+REPO_ROOT="$(pwd -P)/dispatch-compiler"
 
-# Codex
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-ln -s "$PWD/dispatch-compiler" "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler"
+install_skill_link() {
+  source_path="$1"
+  destination_path="$2"
 
-# Anything else (Cursor, Gemini CLI, OpenCode, ...)
-# Either use your harness's skills directory, or just paste SKILL.md into
-# context and point the agent at templates/.
-```
+  if [ ! -e "$source_path" ]; then
+    echo "Source does not exist: $source_path" >&2
+    return 1
+  fi
+  if [ -L "$destination_path" ]; then
+    existing_target="$(readlink "$destination_path")"
+    if [ "$existing_target" = "$source_path" ]; then
+      return 0
+    fi
+    echo "Refusing to replace $destination_path: symlink targets $existing_target, expected $source_path" >&2
+    return 1
+  fi
+  if [ -e "$destination_path" ]; then
+    echo "Refusing to replace $destination_path: path exists and is not a symlink" >&2
+    return 1
+  fi
 
-```bash
-# Optional but recommended: on-demand routing calibration
-ln -s "$PWD/dispatch-compiler/calibrate-model-routing" \
-  "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing"
-ln -s "$PWD/dispatch-compiler/calibrate-model-routing-claude" \
+  mkdir -p "$(dirname "$destination_path")"
+  ln -s "$source_path" "$destination_path"
+}
+
+install_skill_link \
+  "$REPO_ROOT" \
+  "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler" &&
+install_skill_link \
+  "$REPO_ROOT/calibrate-model-routing" \
+  "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing" &&
+install_skill_link \
+  "$REPO_ROOT" \
+  "$HOME/.claude/skills/dispatch-compiler" &&
+install_skill_link \
+  "$REPO_ROOT/calibrate-model-routing-claude" \
   "$HOME/.claude/skills/calibrate-model-routing"
 ```
+
+For another harness (Cursor, Gemini CLI, OpenCode, and similar), use its
+skills directory or place `SKILL.md` in context and point the agent at
+`templates/`.
 
 Create the four labels in a target repo (skip if you use different names —
 the workflow only needs the four states, not these exact strings):

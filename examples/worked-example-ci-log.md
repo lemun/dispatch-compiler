@@ -213,6 +213,23 @@ has or should have. #343 is the agent-shaped work that waits behind this.
 - Evidence anchors: `run-4188.log` lines 3401–3419; provider dashboard shows
   key age if the owner checks — agent could not verify expiry directly.
 
+## Dispatch calibration
+
+- Origin: artifact-grounded
+- Confidence: high
+- Complexity: n/a (owner action)
+- Risk: high (payment credential handling)
+- Cost posture: n/a until ratified
+- Helper agents: not allowed (secret handling)
+- Parallel safety: owner action unblocks #343; no agent shipping lane
+- Escalation triggers: provider access or secret-write permission is unavailable
+- Proof gate: valid key stored in repo secrets and old key revoked
+
+## Model routing
+
+- Codex: Not applicable until ratified.
+- Claude: Not applicable until ratified.
+
 ## Close criteria
 
 - [ ] New key stored in repo secrets; old key revoked at the provider.

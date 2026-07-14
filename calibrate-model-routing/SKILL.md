@@ -15,6 +15,24 @@ their recommendations independent. Never recommend one provider over another.
 Resolve the snapshot path from `MODEL_ROUTING_CALIBRATION_PATH`; otherwise use
 `~/.agents/model-routing/calibration.md`.
 
+## Preflight
+
+Before researching or writing anything:
+
+1. Set `CALIBRATION_HELPER` to the absolute path of
+   `scripts/calibration_snapshot.py`, resolved from the directory containing
+   this `SKILL.md`. Do not assume the current working directory is the skill
+   directory.
+2. Run `python3 "$CALIBRATION_HELPER" status` against the resolved snapshot
+   path.
+3. Read the existing snapshot before research when status is `fresh` or
+   `stale`. Record both verification dates and retain the exact provider
+   section bytes so an incomplete refresh can preserve them unchanged.
+
+When status is `missing`, continue research but treat this as a first-snapshot
+run. When status is `invalid`, report the validation error and stop before
+writing; do not build on an untrusted snapshot.
+
 ## Research
 
 Use current official sources only.
@@ -71,20 +89,31 @@ rationales into the snapshot.
 
 ## Validate and Install
 
-Resolve `scripts/calibration_snapshot.py` relative to this `SKILL.md`.
-
-For a first or full refresh, save the candidate to a temporary file and run:
-
-```bash
-python3 scripts/calibration_snapshot.py install --input <candidate-file>
-```
-
-For a partial refresh, save the provider section to a temporary file and run:
+When a valid snapshot already exists, evaluate requested providers
+independently. For a normal two-provider refresh, apply only successfully
+completed provider sections and preserve each incomplete provider section
+byte-for-byte. Save each completed section to its own temporary file and run
+`replace-provider` once per completed provider:
 
 ```bash
-python3 scripts/calibration_snapshot.py replace-provider \
+python3 "$CALIBRATION_HELPER" replace-provider \
   --provider codex|claude \
   --input <provider-section-file>
+```
+
+If one provider validates and the other provider's evidence is incomplete,
+install only the validated provider section with `replace-provider`; do not
+construct or install a full-snapshot candidate that rewrites the incomplete
+section.
+
+For a first snapshot, install only after both complete provider sections
+validate together. Never install a partial first snapshot. If either provider
+is incomplete, write nothing and report that both complete provider sections
+are required. Once both are complete, save the full candidate to a temporary
+file and run:
+
+```bash
+python3 "$CALIBRATION_HELPER" install --input <candidate-file>
 ```
 
 The helper validates official domains and writes atomically. If it rejects the
