@@ -19,15 +19,24 @@ fallback path. Match that standard of concreteness.
    note, code finding, screenshot, log, or artifact.
 2. Read the project profile if one exists. Profiles define local labels, proof
    gates, model policy, branch rules, runtime rules, and closeout conventions.
-3. Resolve `calibrate-model-routing/scripts/calibration_snapshot.py` relative
-   to this skill and run `python3 calibration_snapshot.py status`. Read the
-   shared snapshot before assigning current model names.
+3. Resolve `CALIBRATION_HELPER` to the absolute path of
+   `calibrate-model-routing/scripts/calibration_snapshot.py` relative to this
+   root `SKILL.md`, then run exactly:
+
+   ```bash
+   python3 "$CALIBRATION_HELPER" status
+   ```
+
+   Read the shared snapshot before assigning current model names.
    - `fresh`: route normally.
    - `stale`: route from the last known-good snapshot and give the user
      one non-blocking reminder to run `$calibrate-model-routing`.
    - `missing` or `invalid`: compile the rest of the packet, mark model routing
      uncalibrated, and tell the user to run the calibrator.
      Do not guess current model names.
+   Emit the stale-snapshot reminder in chat only.
+   The warning, snapshot age, verification date, and other calibration metadata
+   must not appear in a generated issue or packet.
 4. Re-verify current state before filing or closing anything. Treat old issue
    text, stale screenshots, and prior notes as leads until current evidence
    confirms them.

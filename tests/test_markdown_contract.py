@@ -16,8 +16,11 @@ class MarkdownContractTests(unittest.TestCase):
 
     def test_core_skill_handles_fresh_stale_and_missing_snapshots(self) -> None:
         text = (ROOT / "SKILL.md").read_text()
-        self.assertIn("calibration_snapshot.py status", text)
+        self.assertIn("Resolve `CALIBRATION_HELPER` to the absolute path", text)
+        self.assertIn('python3 "$CALIBRATION_HELPER" status', text)
         self.assertIn("one non-blocking reminder", text)
+        self.assertIn("stale-snapshot reminder in chat only", text)
+        self.assertIn("must not appear in a generated issue or packet", text)
         self.assertIn("Do not guess current model names", text)
 
     def test_project_profile_can_narrow_but_not_compare_providers(self) -> None:
