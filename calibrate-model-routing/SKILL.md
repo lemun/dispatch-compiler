@@ -1,85 +1,104 @@
 ---
 name: calibrate-model-routing
-description: [TODO: Complete and informative explanation of what the skill does and when to use it. Include WHEN to use this skill - specific scenarios, file types, or tasks that trigger it.]
+description: Refresh the shared Codex and Claude model-routing calibration from current official provider documentation. Use when the user explicitly asks to calibrate, refresh, or update model and effort recommendations, especially after OpenAI or Anthropic announces model, effort, alias, availability, or guidance changes.
 ---
 
 # Calibrate Model Routing
 
-## Overview
+Refresh volatile provider guidance without changing existing work packets.
 
-[TODO: 1-2 sentences explaining what this skill enables]
+## Scope
 
-## Structuring This Skill
+Refresh both providers unless the user names only Codex or only Claude. Keep
+their recommendations independent. Never recommend one provider over another.
 
-[TODO: Choose the structure that best fits this skill's purpose. Common patterns:
+Resolve the snapshot path from `MODEL_ROUTING_CALIBRATION_PATH`; otherwise use
+`~/.agents/model-routing/calibration.md`.
 
-**1. Workflow-Based** (best for sequential processes)
-- Works well when there are clear step-by-step procedures
-- Example: DOCX skill with "Workflow Decision Tree" -> "Reading" -> "Creating" -> "Editing"
-- Structure: ## Overview -> ## Workflow Decision Tree -> ## Step 1 -> ## Step 2...
+## Research
 
-**2. Task-Based** (best for tool collections)
-- Works well when the skill offers different operations/capabilities
-- Example: PDF skill with "Quick Start" -> "Merge PDFs" -> "Split PDFs" -> "Extract Text"
-- Structure: ## Overview -> ## Quick Start -> ## Task Category 1 -> ## Task Category 2...
+Use current official sources only.
 
-**3. Reference/Guidelines** (best for standards or specifications)
-- Works well for brand guidelines, coding standards, or requirements
-- Example: Brand styling with "Brand Guidelines" -> "Colors" -> "Typography" -> "Features"
-- Structure: ## Overview -> ## Guidelines -> ## Specifications -> ## Usage...
+- Codex: official `openai.com` and `chatgpt.com` documentation. Prefer the
+  OpenAI documentation capability when the active client provides it.
+- Claude: official `anthropic.com` and `claude.com` documentation, including
+  Claude Code model configuration and Claude Platform model guidance.
 
-**4. Capabilities-Based** (best for integrated systems)
-- Works well when the skill provides multiple interrelated features
-- Example: Product Management with "Core Capabilities" -> numbered capability list
-- Structure: ## Overview -> ## Core Capabilities -> ### 1. Feature -> ### 2. Feature...
+For each requested provider, verify:
 
-Patterns can be mixed and matched as needed. Most skills combine patterns (e.g., start with task-based, add workflow for complex operations).
+- current model names and stable IDs or aliases when useful
+- client, account, plan, or cloud-provider availability constraints
+- daily workhorse, frontier, long-horizon or exceptional, and helper tiers
+- supported effort levels, defaults, and provider guidance
+- whether increased model capability or increased effort addresses the failure
+- all official source URLs used
 
-Delete this entire "Structuring This Skill" section when done - it's just guidance.]
+If official sources conflict or do not support a complete provider section,
+preserve the existing section and explain the uncertainty.
 
-## [TODO: Replace with the first main section based on chosen structure]
+## Build the Candidate
 
-[TODO: Add content here. See examples in existing skills:
-- Code samples for technical skills
-- Decision trees for complex workflows
-- Concrete examples with realistic user requests
-- References to scripts/templates/references as needed]
+Use this exact provider-section schema:
 
-## Resources (optional)
+```markdown
+## <Provider>
 
-Create only the resource directories this skill actually needs. Delete this section if no resources are required.
+- Verified at: YYYY-MM-DD
+- Official sources:
+  - https://official.example/path
+- Client or account constraints: <concise current constraint>
+- Workhorse: <model, effort, and task fit>
+- Frontier: <model, effort, and task fit>
+- Long-horizon or exceptional tier: <model, effort, and task fit>
+- Helper or high-volume tier: <model, effort, and task fit>
+- Effort guidance: <when to raise or lower effort>
+- Routing notes: <when to change models>
+```
 
-### scripts/
-Executable code (Python/Bash/etc.) that can be run directly to perform specific operations.
+When creating the first snapshot, assemble both provider sections beneath:
 
-**Examples from other skills:**
-- PDF skill: `fill_fillable_fields.py`, `extract_form_field_info.py` - utilities for PDF manipulation
-- DOCX skill: `document.py`, `utilities.py` - Python modules for document processing
-
-**Appropriate for:** Python scripts, shell scripts, or any executable code that performs automation, data processing, or specific operations.
-
-**Note:** Scripts may be executed without loading into context, but can still be read by Codex for patching or environment adjustments.
-
-### references/
-Documentation and reference material intended to be loaded into context to inform Codex's process and thinking.
-
-**Examples from other skills:**
-- Product management: `communication.md`, `context_building.md` - detailed workflow guides
-- BigQuery: API reference documentation and query examples
-- Finance: Schema documentation, company policies
-
-**Appropriate for:** In-depth documentation, API references, database schemas, comprehensive guides, or any detailed information that Codex should reference while working.
-
-### assets/
-Files not intended to be loaded into context, but rather used within the output Codex produces.
-
-**Examples from other skills:**
-- Brand styling: PowerPoint template files (.pptx), logo files
-- Frontend builder: HTML/React boilerplate project directories
-- Typography: Font files (.ttf, .woff2)
-
-**Appropriate for:** Templates, boilerplate code, document templates, images, icons, fonts, or any files meant to be copied or used in the final output.
-
+```markdown
+---
+schema_version: 1
+stale_after_days: 30
 ---
 
-**Not every skill requires all three types of resources.**
+# Model routing calibration
+```
+
+Do not write model rumors, cross-provider rankings, packet examples, or long
+rationales into the snapshot.
+
+## Validate and Install
+
+Resolve `scripts/calibration_snapshot.py` relative to this `SKILL.md`.
+
+For a first or full refresh, save the candidate to a temporary file and run:
+
+```bash
+python3 scripts/calibration_snapshot.py install --input <candidate-file>
+```
+
+For a partial refresh, save the provider section to a temporary file and run:
+
+```bash
+python3 scripts/calibration_snapshot.py replace-provider \
+  --provider codex|claude \
+  --input <provider-section-file>
+```
+
+The helper validates official domains and writes atomically. If it rejects the
+candidate, correct the evidence-backed defect or preserve the old snapshot.
+Never weaken validation to force an update through.
+
+## Report
+
+Report:
+
+- provider sections refreshed
+- previous and new verification dates
+- model or effort guidance that materially changed
+- sections preserved because evidence was incomplete
+- snapshot path
+
+Do not modify existing packets, create a schedule, or start packet generation.
