@@ -4,7 +4,7 @@
 
 **Goal:** Add an on-demand calibration skill that maintains current official Codex and Claude model guidance, then make `dispatch-compiler` generate compact task-specific routing for new packets.
 
-**Architecture:** A dependency-free Python helper validates and atomically updates a shared Markdown snapshot at `~/.agents/model-routing/calibration.md`. The new `calibrate-model-routing` skill researches official provider documentation and writes through that helper; the existing `dispatch-compiler` skill consumes the snapshot, project constraints, and packet traits to emit one independent routing line per provider.
+**Architecture:** A dependency-free Python helper validates and atomically updates a shared Markdown snapshot at `~/.agents/model-routing/calibration.md`. One canonical `calibrate-model-routing` workflow researches official provider documentation and writes through that helper; separate Codex and Claude entrypoints enforce each client's manual-invocation contract while sharing the workflow and scripts. The existing `dispatch-compiler` skill consumes the snapshot, project constraints, and packet traits to emit one independent routing line per provider.
 
 **Tech Stack:** Agent Skills Markdown, Python 3 standard library, `unittest`, YAML UI metadata, Git
 
@@ -28,7 +28,11 @@
 - `calibrate-model-routing/SKILL.md`: manual official-source research and snapshot update workflow.
 - `calibrate-model-routing/agents/openai.yaml`: Codex UI metadata; implicit invocation disabled.
 - `calibrate-model-routing/scripts/calibration_snapshot.py`: validate, install, replace, and report snapshot freshness atomically.
+- `calibrate-model-routing-claude/SKILL.md`: Claude-specific manual-only wrapper for the canonical workflow.
+- `calibrate-model-routing-claude/WORKFLOW.md`: relative link to the canonical workflow.
+- `calibrate-model-routing-claude/scripts`: relative link to the canonical scripts directory.
 - `tests/test_calibration_snapshot.py`: focused behavior tests for snapshot validation, replacement, and staleness.
+- `tests/test_client_entrypoints.py`: focused contract tests for both manual-only entrypoints and Claude's canonical links.
 - `tests/test_markdown_contract.py`: repository-level contract tests for the compact routing block and stale-snapshot behavior.
 - `SKILL.md`: consume the snapshot and route each packet independently.
 - `templates/dispatch-calibration.md`: stable calibration fields plus compact routing contract.
@@ -426,10 +430,17 @@ git commit -m "Add atomic model routing snapshot helper"
 **Files:**
 - Modify: `calibrate-model-routing/SKILL.md`
 - Modify: `calibrate-model-routing/agents/openai.yaml`
+- Create: `calibrate-model-routing-claude/SKILL.md`
+- Create: `calibrate-model-routing-claude/WORKFLOW.md` (relative symlink)
+- Create: `calibrate-model-routing-claude/scripts` (relative symlink)
+- Create: `tests/test_client_entrypoints.py`
+- Modify: `docs/superpowers/specs/2026-07-14-model-routing-calibrator-design.md`
+- Modify: `docs/superpowers/plans/2026-07-14-model-routing-calibrator.md`
 
 **Interfaces:**
 - Consumes: `calibration_snapshot.py` CLI from Task 1.
-- Produces: explicit `$calibrate-model-routing` workflow for both clients.
+- Produces: one canonical `$calibrate-model-routing` workflow with manual-only
+  Codex and Claude entrypoints.
 - Produces: a complete two-provider candidate or one validated provider section.
 
 - [ ] **Step 1: Replace the scaffolded skill instructions**
@@ -557,7 +568,26 @@ policy:
   allow_implicit_invocation: false
 ```
 
-- [ ] **Step 3: Run the official skill validator without installing a global Python package**
+- [ ] **Step 3: Add and test the Claude-specific manual entrypoint**
+
+Create `calibrate-model-routing-claude/SKILL.md` with
+`disable-model-invocation: true`. Its body reads
+`${CLAUDE_SKILL_DIR}/WORKFLOW.md` completely as the canonical workflow and
+resolves helper commands through
+`${CLAUDE_SKILL_DIR}/scripts/calibration_snapshot.py`.
+
+Add tracked relative symlinks:
+
+```text
+calibrate-model-routing-claude/WORKFLOW.md -> ../calibrate-model-routing/SKILL.md
+calibrate-model-routing-claude/scripts -> ../calibrate-model-routing/scripts
+```
+
+Create `tests/test_client_entrypoints.py` to prove both clients' manual-only
+metadata and both Claude wrapper symlinks. Run it before creating the wrapper
+to observe the expected failure, then rerun it after implementation.
+
+- [ ] **Step 4: Run the canonical skill validator without installing a global Python package**
 
 Run:
 
@@ -572,15 +602,23 @@ rm -rf "$VALIDATOR_DEPS"
 
 Expected: `Skill is valid!`
 
-- [ ] **Step 4: Re-run focused tests and commit**
+- Do not run the Codex validator against `calibrate-model-routing-claude`; its
+  Claude-only frontmatter is covered by `tests/test_client_entrypoints.py`.
+
+- [ ] **Step 5: Re-run focused and full tests and commit**
 
 ```bash
-python3 -m unittest tests/test_calibration_snapshot.py -v
-git add calibrate-model-routing
-git commit -m "Add on-demand model routing calibration skill"
+python3 -m unittest tests/test_client_entrypoints.py -v
+python3 -m unittest discover -s tests -v
+git add calibrate-model-routing calibrate-model-routing-claude \
+  tests/test_client_entrypoints.py \
+  docs/superpowers/specs/2026-07-14-model-routing-calibrator-design.md \
+  docs/superpowers/plans/2026-07-14-model-routing-calibrator.md
+git commit -m "Add client-specific calibration entrypoints"
 ```
 
-Expected: 5 tests pass, then the skill files commit cleanly.
+Expected: the focused client-entrypoint tests and full suite pass, then the
+client entrypoint files commit cleanly.
 
 ### Task 3: Integrate Task-Specific Routing into Dispatch Compiler
 
@@ -827,7 +865,7 @@ Add this installation block to `README.md` after the existing skill install:
 # Optional but recommended: on-demand routing calibration
 ln -s "$PWD/dispatch-compiler/calibrate-model-routing" \
   "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing"
-ln -s "$PWD/dispatch-compiler/calibrate-model-routing" \
+ln -s "$PWD/dispatch-compiler/calibrate-model-routing-claude" \
   "$HOME/.claude/skills/calibrate-model-routing"
 ```
 
@@ -952,7 +990,7 @@ ln -s /Users/shai/Dev/dispatch-compiler/calibrate-model-routing \
   "$HOME/.codex/skills/calibrate-model-routing"
 ln -s /Users/shai/Dev/dispatch-compiler \
   "$HOME/.claude/skills/dispatch-compiler"
-ln -s /Users/shai/Dev/dispatch-compiler/calibrate-model-routing \
+ln -s /Users/shai/Dev/dispatch-compiler/calibrate-model-routing-claude \
   "$HOME/.claude/skills/calibrate-model-routing"
 ```
 

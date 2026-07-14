@@ -6,11 +6,11 @@ Applies to: `dispatch-compiler`, Claude Code, and Codex
 
 ## Summary
 
-Add a manually invoked `calibrate-model-routing` skill and a shared local
-calibration snapshot. The calibrator refreshes current model and effort
-guidance from official OpenAI and Anthropic sources. `dispatch-compiler` reads
-that snapshot and generates a compact, task-specific model-routing block for
-each new packet.
+Add one canonical, manually invoked `calibrate-model-routing` workflow with
+two client-specific entrypoints and a shared local calibration snapshot. The
+calibrator refreshes current model and effort guidance from official OpenAI
+and Anthropic sources. `dispatch-compiler` reads that snapshot and generates a
+compact, task-specific model-routing block for each new packet.
 
 Calibration and routing are separate operations:
 
@@ -108,9 +108,10 @@ The actual model and effort pair is selected anew for every packet.
 
 ## Architecture
 
-### 1. Calibrator skill
+### 1. Calibrator workflow and client entrypoints
 
-Add a second Agent Skills-format skill inside this repository:
+Add one canonical Agent Skills-format workflow and a thin Claude-specific
+entrypoint inside this repository:
 
 ```text
 calibrate-model-routing/
@@ -119,11 +120,20 @@ calibrate-model-routing/
 │   └── openai.yaml
 └── scripts/
     └── calibration_snapshot.py
+
+calibrate-model-routing-claude/
+├── SKILL.md
+├── WORKFLOW.md -> ../calibrate-model-routing/SKILL.md
+└── scripts -> ../calibrate-model-routing/scripts
 ```
 
-Its public invocation is `calibrate-model-routing`; clients may display it as
-`/calibrate-model-routing` or `$calibrate-model-routing` according to their
-skill UI.
+Both entrypoints use the public invocation `calibrate-model-routing`; clients
+may display it as `/calibrate-model-routing` or `$calibrate-model-routing`
+according to their skill UI. The canonical Codex entrypoint disables implicit
+invocation in `agents/openai.yaml`. The Claude wrapper sets
+`disable-model-invocation: true`, then reads the canonical workflow and helper
+through relative symlinks. This preserves one workflow while satisfying both
+clients' incompatible manual-invocation metadata validators.
 
 The skill must:
 
@@ -289,7 +299,8 @@ OpenAI documentation rather than copied permanently into this design.
 
 Implementation should:
 
-1. Add `calibrate-model-routing/` as a standalone nested skill.
+1. Add `calibrate-model-routing/` as the canonical nested skill and
+   `calibrate-model-routing-claude/` as its thin Claude-specific entrypoint.
 2. Add and test the deterministic snapshot validation/update script.
 3. Add installation instructions for symlinking the skill into Codex and
    Claude Code.
@@ -309,7 +320,7 @@ links for both clients while both read the same snapshot:
 
 ```text
 ~/.codex/skills/calibrate-model-routing  -> <repo>/calibrate-model-routing
-~/.claude/skills/calibrate-model-routing -> <repo>/calibrate-model-routing
+~/.claude/skills/calibrate-model-routing -> <repo>/calibrate-model-routing-claude
 ```
 
 The existing `dispatch-compiler` installation remains separate. Users may
@@ -331,23 +342,27 @@ the calibrator produces the snapshot and the compiler consumes it.
 
 Implementation is complete when all of the following pass:
 
-1. The nested skill passes the skill creator's `quick_validate.py` check.
-2. The snapshot helper's focused tests pass.
-3. A first run with no snapshot creates a complete two-provider snapshot.
-4. A Claude-only refresh preserves the Codex section byte-for-byte.
-5. An official-source failure preserves the previous provider section.
-6. A fresh snapshot produces no staleness warning.
-7. A snapshot older than 30 days produces one non-blocking warning and still
+1. The canonical Codex skill passes the skill creator's `quick_validate.py`
+   check.
+2. The focused client-entrypoint test proves both manual-invocation controls
+   and both Claude wrapper symlinks. The Codex validator is not run against
+   the Claude-only wrapper frontmatter.
+3. The snapshot helper's focused tests pass.
+4. A first run with no snapshot creates a complete two-provider snapshot.
+5. A Claude-only refresh preserves the Codex section byte-for-byte.
+6. An official-source failure preserves the previous provider section.
+7. A fresh snapshot produces no staleness warning.
+8. A snapshot older than 30 days produces one non-blocking warning and still
    routes the packet.
-8. A missing or invalid snapshot produces no guessed model names.
-9. A routine implementation packet receives workhorse-to-frontier routing.
-10. A bounded evidence-only packet can receive a helper-tier route.
-11. A complex packet can start at a frontier tier without a redundant arrow.
-12. A long-running Claude packet can select Fable directly.
-13. An owner-only packet receives no implementation recommendation.
-14. Codex and Claude recommendations are independent and contain no
+9. A missing or invalid snapshot produces no guessed model names.
+10. A routine implementation packet receives workhorse-to-frontier routing.
+11. A bounded evidence-only packet can receive a helper-tier route.
+12. A complex packet can start at a frontier tier without a redundant arrow.
+13. A long-running Claude packet can select Fable directly.
+14. An owner-only packet receives no implementation recommendation.
+15. Codex and Claude recommendations are independent and contain no
     cross-provider preference.
-15. Existing `dispatch-compiler` examples still demonstrate valid status,
+16. Existing `dispatch-compiler` examples still demonstrate valid status,
     proof, and closeout behavior after migration.
 
 Forward-testing with helper agents is optional and must follow the active
@@ -357,7 +372,8 @@ snapshot and template behavior.
 ## Rollout
 
 1. Land the implementation in `dispatch-compiler`.
-2. Install both skills into Codex and Claude Code.
+2. Install the matching client-specific calibration entrypoint into Codex and
+   Claude Code.
 3. Run `calibrate-model-routing` once to create the initial snapshot.
 4. Use the updated compiler for newly grilled or seeded packets.
 5. Re-run calibration manually after provider announcements or when the stale
