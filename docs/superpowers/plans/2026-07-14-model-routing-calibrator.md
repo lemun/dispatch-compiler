@@ -884,7 +884,11 @@ Run:
 
 ```bash
 python3 -m unittest discover -s tests -v
-rg -n "Recommended (Claude|Codex) lane" . && exit 1 || true
+if rg -n "Recommended (Claude|Codex) lane" \
+  SKILL.md README.md templates examples
+then
+  exit 1
+fi
 git diff --check
 ```
 
