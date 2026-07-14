@@ -19,7 +19,16 @@ fallback path. Match that standard of concreteness.
    note, code finding, screenshot, log, or artifact.
 2. Read the project profile if one exists. Profiles define local labels, proof
    gates, model policy, branch rules, runtime rules, and closeout conventions.
-3. Re-verify current state before filing or closing anything. Treat old issue
+3. Resolve `calibrate-model-routing/scripts/calibration_snapshot.py` relative
+   to this skill and run `python3 calibration_snapshot.py status`. Read the
+   shared snapshot before assigning current model names.
+   - `fresh`: route normally.
+   - `stale`: route from the last known-good snapshot and give the user
+     one non-blocking reminder to run `$calibrate-model-routing`.
+   - `missing` or `invalid`: compile the rest of the packet, mark model routing
+     uncalibrated, and tell the user to run the calibrator.
+     Do not guess current model names.
+4. Re-verify current state before filing or closing anything. Treat old issue
    text, stale screenshots, and prior notes as leads until current evidence
    confirms them.
 
@@ -97,12 +106,15 @@ Add this block to every successor issue:
 - Complexity:
 - Risk:
 - Cost posture:
-- Recommended Claude lane + effort:
-- Recommended Codex lane + effort:
 - Helper agents:
 - Parallel safety:
 - Escalation triggers:
 - Proof gate:
+
+## Model routing
+
+- Codex: <starting model> / <effort> → <escalation model> / <effort> if the packet's escalation condition triggers.
+- Claude: <starting model> / <effort> → <escalation model> / <effort> if the packet's escalation condition triggers.
 ```
 
 Calibrate model usage for the cost of being wrong, not the apparent size of the
@@ -111,6 +123,29 @@ helpers only for bounded, reviewable work such as search, log reduction,
 screenshot inventory, duplicate detection, test runs, or artifact extraction.
 Keep frontier or senior-agent review for synthesis, risk, product judgment, and
 merge-critical implementation.
+
+## Model Routing
+
+Route Codex and Claude independently from the shared snapshot. Never recommend
+one provider over the other.
+
+For each provider:
+
+1. Apply current catalog and effort semantics from the snapshot.
+2. Narrow them with project availability and ownership constraints.
+3. Choose the least expensive tier that can safely own this packet.
+4. Raise model capability for genuine difficulty, unfamiliarity, ambiguity,
+   or knowledge limits.
+5. Raise effort for inspection depth, tool use, test execution, persistence,
+   or verification burden.
+6. Select a long-horizon specialist directly when the task is already larger
+   than an ordinary sitting.
+7. Add an arrow only when a materially stronger available route exists. Point
+   it at the packet's existing escalation condition without copying it.
+
+For `owner` or `needs-grill` work with no model-owned execution, emit `Not
+applicable until ratified`. Low-cost helpers may own bounded evidence work, but
+do not let them own shipping lanes by default.
 
 ## Parallel Lane Carving
 

@@ -48,12 +48,15 @@ Out of scope:
 - Complexity:
 - Risk:
 - Cost posture:
-- Recommended Claude lane + effort:
-- Recommended Codex lane + effort:
 - Helper agents:
 - Parallel safety:
 - Escalation triggers:
 - Proof gate:
+
+## Model routing
+
+- Codex:
+- Claude:
 
 ## Parallelization
 
