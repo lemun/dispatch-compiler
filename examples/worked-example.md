@@ -93,12 +93,18 @@ Out of scope:
 - Complexity: S
 - Risk: medium (auth-adjacent, but the change is a one-line constant + test)
 - Cost posture: frontier-reviewed helper lane
-- Recommended Claude lane + effort: Sonnet-class lane, low effort; frontier review of the diff before merge
-- Recommended Codex lane + effort: default lane, low effort
 - Helper agents: allowed (test running only)
 - Parallel safety: file-disjoint from #217 and #218
 - Escalation triggers: fix requires touching session middleware or token logic
 - Proof gate: `npm test -- AccountPanel` passes; manual sign-out on staging redirects to `/login`
+
+The model names below illustrate the calibration current when this example was
+written; generated packets use the shared snapshot instead of copying them.
+
+## Model routing
+
+- Codex: Terra / Medium → Sol / High if the packet's escalation condition triggers.
+- Claude: Sonnet 5 / High → Opus 4.8 / XHigh if the packet's escalation condition triggers.
 
 ## Parallelization
 
@@ -188,12 +194,15 @@ Out of scope:
 - Complexity: M
 - Risk: high (billing surface; a bad patch hides invoices from customers)
 - Cost posture: frontier-owned
-- Recommended Claude lane + effort: frontier lane, medium effort
-- Recommended Codex lane + effort: high-effort lane with mandatory review
 - Helper agents: limited (profiling runs and log reduction only)
 - Parallel safety: subsystem-disjoint from #216; shares `/settings/billing` surface with #218 — sequenced before #218
 - Escalation triggers: pagination requires schema changes, or the admin export cannot be kept correct
 - Proof gate: profile shows <1.5s load on the seeded account; invoice count on final page matches DB count
+
+## Model routing
+
+- Codex: Sol / High.
+- Claude: Opus 4.8 / XHigh.
 
 ## Parallelization
 
@@ -270,12 +279,15 @@ Runtime proof status: Side-by-side screenshots captured on staging.
 - Complexity: M (for option 1) — unknown for option 2
 - Risk: low
 - Cost posture: frontier-reviewed helper lane (once ratified)
-- Recommended Claude lane + effort: n/a until ratified
-- Recommended Codex lane + effort: n/a until ratified
 - Helper agents: allowed (screenshot inventory already done)
 - Parallel safety: touches `/settings/*` surfaces — must be sequenced after #217
 - Escalation triggers: n/a — this issue is a decision request
 - Proof gate: owner replies with a chosen direction; issue is then relabeled `ready` with a concrete spec
+
+## Model routing
+
+- Codex: Not applicable until ratified.
+- Claude: Not applicable until ratified.
 
 ## Parallelization
 
@@ -324,6 +336,11 @@ anything derived from production is a human call, not an agent call.
 - Helper agents: not allowed
 - Parallel safety: n/a
 - Proof gate: owner comment approving or rejecting the policy
+
+## Model routing
+
+- Codex: Not applicable until ratified.
+- Claude: Not applicable until ratified.
 
 ## Close criteria
 

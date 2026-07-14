@@ -71,6 +71,14 @@ ln -s "$PWD/dispatch-compiler" "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-comp
 # context and point the agent at templates/.
 ```
 
+```bash
+# Optional but recommended: on-demand routing calibration
+ln -s "$PWD/dispatch-compiler/calibrate-model-routing" \
+  "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing"
+ln -s "$PWD/dispatch-compiler/calibrate-model-routing-claude" \
+  "$HOME/.claude/skills/calibrate-model-routing"
+```
+
 Create the four labels in a target repo (skip if you use different names —
 the workflow only needs the four states, not these exact strings):
 
@@ -120,12 +128,15 @@ Every successor issue is built from
 - Complexity:
 - Risk:
 - Cost posture:
-- Recommended Claude lane + effort:
-- Recommended Codex lane + effort:
 - Helper agents:
 - Parallel safety:
 - Escalation triggers:
 - Proof gate:
+
+## Model routing
+
+- Codex:
+- Claude:
 ```
 
 Calibration is the cost-control mechanism, and it optimizes for **mergeable
@@ -170,6 +181,22 @@ lane-isolation rules, escalation triggers. Start from
 example for a mobile team running Conductor-style worktree lanes at
 [profiles/mobile-app-parallel-lanes.example.md](profiles/mobile-app-parallel-lanes.example.md).
 
+## Model routing calibration
+
+Model guidance changes faster than issue templates. Run
+`$calibrate-model-routing` manually after OpenAI or Anthropic announces a
+relevant model, effort, alias, availability, or guidance change, or when the
+compiler reports that the 30-day snapshot is stale.
+
+The calibrator writes `~/.agents/model-routing/calibration.md`. The compiler
+then routes every new packet independently from that snapshot, the project
+profile, and the packet's complexity, risk, ambiguity, autonomy, and proof
+burden. Packets receive two compact lines: one for Codex users and one for
+Claude users. Neither line recommends a provider over the other.
+
+Calibration is never scheduled, never runs during every grill, and never
+rewrites existing packets.
+
 ## Closeout discipline
 
 A source issue doesn't just get closed — it ends with a dispatch ledger
@@ -204,7 +231,8 @@ dispatch-compiler/
 
 ## What this does not do
 
-- It does not make model routing automatic.
+- It does not choose a provider for the user or refresh model guidance without
+  an explicit calibration run.
 - It does not replace owner judgment.
 - It does not guarantee that parallel lanes will merge cleanly.
 - It does not turn weak evidence into ready work.

@@ -72,12 +72,18 @@ artificial 2.5s render delay.
 - Complexity: S
 - Risk: low (test-only change)
 - Cost posture: frontier-reviewed helper lane
-- Recommended Claude lane + effort: Sonnet-class lane, low effort
-- Recommended Codex lane + effort: default lane, low effort
 - Helper agents: allowed (log clustering already done; test running only)
 - Parallel safety: file-disjoint from #343–#345
 - Escalation triggers: fix requires touching specs outside the four callers
 - Proof gate: `npm run e2e:mocked -- --grep @toast` passes 20/20 with injected 2.5s render delay
+
+The model names below illustrate the calibration current when this example was
+written; generated packets use the shared snapshot instead of copying them.
+
+## Model routing
+
+- Codex: Terra / Medium → Sol / High if the packet's escalation condition triggers.
+- Claude: Sonnet 5 / High → Opus 4.8 / XHigh if the packet's escalation condition triggers.
 
 ## Proof gate
 
@@ -127,6 +133,11 @@ Runtime proof status: blocked — the credential itself is the blocker.
 - Escalation triggers: specs still fail after key rotation
 - Proof gate: two consecutive green `e2e-nightly` runs with checkout specs enabled
 
+## Model routing
+
+- Codex: Luna / Low → Terra / Medium if the packet's escalation condition triggers.
+- Claude: Haiku 4.5 / Default → Sonnet 5 / High if the packet's escalation condition triggers.
+
 The work is fully shaped — the only missing input is the rotated secret,
 which is #345 and human-only. That is exactly what `blocked` is for: shaped
 enough to dispatch the moment a named condition clears.
@@ -172,6 +183,11 @@ coverage — not something an agent should decide by momentum.
 - Helper agents: n/a
 - Parallel safety: n/a (decision, not code)
 - Proof gate: owner replies with a chosen option; issue relabeled `ready` with that spec
+
+## Model routing
+
+- Codex: Not applicable until ratified.
+- Claude: Not applicable until ratified.
 
 ---
 

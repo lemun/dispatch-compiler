@@ -30,6 +30,19 @@ class MarkdownContractTests(unittest.TestCase):
         self.assertIn("Low-cost shipping ownership", text)
         self.assertIn("Do not rank providers", text)
 
+    def test_examples_use_compact_routing(self) -> None:
+        for name in ("worked-example.md", "worked-example-ci-log.md"):
+            text = (ROOT / "examples" / name).read_text()
+            self.assertIn("## Model routing", text)
+            self.assertNotIn("Recommended Claude lane + effort", text)
+            self.assertNotIn("Recommended Codex lane + effort", text)
+
+    def test_readme_explains_manual_shared_calibration(self) -> None:
+        text = (ROOT / "README.md").read_text()
+        self.assertIn("$calibrate-model-routing", text)
+        self.assertIn("~/.agents/model-routing/calibration.md", text)
+        self.assertIn("Calibration is never scheduled", text)
+
 
 if __name__ == "__main__":
     unittest.main()
