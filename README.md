@@ -63,43 +63,52 @@ target and refuses every mismatch or non-symlink collision.
 # Install all four skill links with collision checks
 REPO_ROOT="$(pwd -P)/dispatch-compiler"
 
-install_skill_link() {
-  source_path="$1"
-  destination_path="$2"
+skill_sources=(
+  "$REPO_ROOT"
+  "$REPO_ROOT/calibrate-model-routing"
+  "$REPO_ROOT"
+  "$REPO_ROOT/calibrate-model-routing-claude"
+)
+skill_destinations=(
+  "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler"
+  "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing"
+  "$HOME/.claude/skills/dispatch-compiler"
+  "$HOME/.claude/skills/calibrate-model-routing"
+)
 
-  if [ ! -e "$source_path" ]; then
-    echo "Source does not exist: $source_path" >&2
-    return 1
-  fi
-  if [ -L "$destination_path" ]; then
-    existing_target="$(readlink "$destination_path")"
-    if [ "$existing_target" = "$source_path" ]; then
-      return 0
+preflight_skill_links() {
+  for source_path in "${skill_sources[@]}"; do
+    if [ ! -e "$source_path" ]; then
+      echo "Source does not exist: $source_path" >&2
+      return 1
     fi
-    echo "Refusing to replace $destination_path: symlink targets $existing_target, expected $source_path" >&2
-    return 1
-  fi
-  if [ -e "$destination_path" ]; then
-    echo "Refusing to replace $destination_path: path exists and is not a symlink" >&2
-    return 1
-  fi
+  done
 
-  mkdir -p "$(dirname "$destination_path")"
-  ln -s "$source_path" "$destination_path"
+  for index in "${!skill_destinations[@]}"; do
+    source_path="${skill_sources[$index]}"
+    destination_path="${skill_destinations[$index]}"
+    if [ -L "$destination_path" ]; then
+      existing_target="$(readlink "$destination_path")"
+      if [ "$existing_target" != "$source_path" ]; then
+        echo "Refusing to replace $destination_path: symlink targets $existing_target, expected $source_path" >&2
+        return 1
+      fi
+    elif [ -e "$destination_path" ]; then
+      echo "Refusing to replace $destination_path: path exists and is not a symlink" >&2
+      return 1
+    fi
+  done
 }
 
-install_skill_link \
-  "$REPO_ROOT" \
-  "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler" &&
-install_skill_link \
-  "$REPO_ROOT/calibrate-model-routing" \
-  "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing" &&
-install_skill_link \
-  "$REPO_ROOT" \
-  "$HOME/.claude/skills/dispatch-compiler" &&
-install_skill_link \
-  "$REPO_ROOT/calibrate-model-routing-claude" \
-  "$HOME/.claude/skills/calibrate-model-routing"
+preflight_skill_links || exit 1
+
+for index in "${!skill_destinations[@]}"; do
+  destination_path="${skill_destinations[$index]}"
+  if [ ! -L "$destination_path" ]; then
+    mkdir -p "$(dirname "$destination_path")"
+    ln -s "${skill_sources[$index]}" "$destination_path"
+  fi
+done
 ```
 
 For another harness (Cursor, Gemini CLI, OpenCode, and similar), use its

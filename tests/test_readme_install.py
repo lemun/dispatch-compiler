@@ -74,35 +74,60 @@ class ReadmeInstallTests(unittest.TestCase):
             )
             self.assertEqual(source_after, source_before)
 
-    def test_mismatched_symlink_stops_without_replacement(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            checkout, environment, destinations = self.fixture(root)
-            mismatch = destinations[0]
-            mismatch.parent.mkdir(parents=True)
-            wrong_target = root / "wrong-source"
-            wrong_target.mkdir()
-            mismatch.symlink_to(wrong_target)
+    def test_mismatched_symlink_at_any_position_stops_before_installing(self) -> None:
+        for collision_index in reversed(range(4)):
+            with self.subTest(collision_index=collision_index):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    checkout, environment, destinations = self.fixture(root)
+                    mismatch = destinations[collision_index]
+                    mismatch.parent.mkdir(parents=True, exist_ok=True)
+                    wrong_target = root / "wrong-source"
+                    wrong_target.mkdir()
+                    sentinel = wrong_target / "sentinel.txt"
+                    sentinel.write_text("leave this target alone\n")
+                    mismatch.symlink_to(wrong_target)
 
-            result = self.run_installer(checkout, environment)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Refusing to replace", result.stderr)
-            self.assertEqual(os.readlink(mismatch), str(wrong_target))
-            self.assertFalse((wrong_target / "dispatch-compiler").exists())
+                    result = self.run_installer(checkout, environment)
 
-    def test_non_symlink_collision_stops_without_replacement(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            checkout, environment, destinations = self.fixture(root)
-            collision = destinations[0]
-            collision.parent.mkdir(parents=True)
-            collision.mkdir()
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("Refusing to replace", result.stderr)
+                    self.assertEqual(os.readlink(mismatch), str(wrong_target))
+                    self.assertEqual(sentinel.read_text(), "leave this target alone\n")
+                    for index, destination in enumerate(destinations):
+                        if index != collision_index:
+                            self.assertFalse(
+                                destination.exists() or destination.is_symlink(),
+                                f"partially installed {destination}",
+                            )
 
-            result = self.run_installer(checkout, environment)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Refusing to replace", result.stderr)
-            self.assertTrue(collision.is_dir())
-            self.assertFalse(collision.is_symlink())
+    def test_non_symlink_collision_at_any_position_stops_before_installing(self) -> None:
+        for collision_index in reversed(range(4)):
+            with self.subTest(collision_index=collision_index):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    checkout, environment, destinations = self.fixture(root)
+                    collision = destinations[collision_index]
+                    collision.mkdir(parents=True)
+                    sentinel = collision / "sentinel.txt"
+                    sentinel.write_text("leave this collision alone\n")
+
+                    result = self.run_installer(checkout, environment)
+
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("Refusing to replace", result.stderr)
+                    self.assertTrue(collision.is_dir())
+                    self.assertFalse(collision.is_symlink())
+                    self.assertEqual(
+                        sentinel.read_text(),
+                        "leave this collision alone\n",
+                    )
+                    for index, destination in enumerate(destinations):
+                        if index != collision_index:
+                            self.assertFalse(
+                                destination.exists() or destination.is_symlink(),
+                                f"partially installed {destination}",
+                            )
 
 
 if __name__ == "__main__":

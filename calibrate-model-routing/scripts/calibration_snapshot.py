@@ -124,11 +124,27 @@ def validate_provider_section(
     sources_heading = re.search(r"(?m)^- Official sources:[ \t]*\n", section)
     if sources_heading is None:
         raise SnapshotError(f"{display} Official sources must be an indented list")
+    constraints_heading = re.search(
+        r"(?m)^- Client or account constraints:",
+        section[sources_heading.end():],
+    )
+    if constraints_heading is None:
+        raise SnapshotError(
+            f"{display} Client or account constraints must follow Official sources"
+        )
+    sources_block = section[
+        sources_heading.end():
+        sources_heading.end() + constraints_heading.start()
+    ]
     source_urls: list[str] = []
-    for line in section[sources_heading.end():].splitlines():
-        source = re.fullmatch(r"[ \t]+-[ \t]+(https://\S+)[ \t]*", line)
+    for line in sources_block.splitlines():
+        if not line.strip():
+            continue
+        source = re.fullmatch(r"  - (https://\S+)[ \t]*", line)
         if not source:
-            break
+            raise SnapshotError(
+                f"{display} Official sources must contain only indented HTTPS URL items"
+            )
         source_urls.append(source.group(1))
     if not source_urls:
         raise SnapshotError(

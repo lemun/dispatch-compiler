@@ -78,6 +78,37 @@ class SnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(snapshot.SnapshotError, "official Claude domain"):
             snapshot.validate_snapshot(full_snapshot(claude=bad))
 
+    def test_accepts_multiple_official_provider_sources(self) -> None:
+        candidate = CODEX.replace(
+            "  - https://developers.openai.com/api/docs/guides/latest-model\n",
+            "  - https://developers.openai.com/api/docs/guides/latest-model\n"
+            "  - https://openai.com/research\n",
+        )
+        snapshot.validate_provider_section("codex", candidate)
+
+    def test_rejects_invalid_items_after_valid_official_source(self) -> None:
+        invalid_items = {
+            "http_url": "  - http://developers.openai.com/insecure\n",
+            "malformed_item": "  - not-a-url\n",
+            "stray_text": "  unexpected nested text\n",
+            "nonofficial_https": "  - https://example.com/not-official\n",
+            "nested_item": "    - https://openai.com/research\n",
+            "multiple_urls": (
+                "  - https://openai.com/research https://openai.com/news\n"
+            ),
+        }
+        official_source = (
+            "  - https://developers.openai.com/api/docs/guides/latest-model\n"
+        )
+        for name, invalid_item in invalid_items.items():
+            with self.subTest(name=name):
+                candidate = CODEX.replace(
+                    official_source,
+                    official_source + invalid_item,
+                )
+                with self.assertRaises(snapshot.SnapshotError):
+                    snapshot.validate_provider_section("codex", candidate)
+
     def test_rejects_blank_provider_scalar_fields(self) -> None:
         for field in SCALAR_FIELDS:
             with self.subTest(field=field):
