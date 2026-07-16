@@ -70,16 +70,28 @@ skill_sources=(
   "$REPO_ROOT/calibrate-model-routing-claude"
 )
 skill_destinations=(
-  "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler"
-  "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing"
+  "$HOME/.agents/skills/dispatch-compiler"
+  "$HOME/.agents/skills/calibrate-model-routing"
   "$HOME/.claude/skills/dispatch-compiler"
   "$HOME/.claude/skills/calibrate-model-routing"
+)
+legacy_codex_destinations=(
+  "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler"
+  "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing"
 )
 
 preflight_skill_links() {
   for source_path in "${skill_sources[@]}"; do
     if [ ! -e "$source_path" ]; then
       echo "Source does not exist: $source_path" >&2
+      return 1
+    fi
+  done
+
+  for legacy_path in "${legacy_codex_destinations[@]}"; do
+    if [ -e "$legacy_path" ] || [ -L "$legacy_path" ]; then
+      echo "Refusing to install while duplicate Codex-specific skill exists: $legacy_path" >&2
+      echo "Back it up, remove it, and rerun this installer." >&2
       return 1
     fi
   done
@@ -241,9 +253,9 @@ Install their single versioned source for both Codex and Claude:
 bash scripts/install-grill-frontends.sh
 ```
 
-The installer creates direct links under `~/.agents/skills` and
+The installers create direct links under `~/.agents/skills` and
 `~/.claude/skills`, is safe to rerun, and refuses all collisions before making
-changes. It also refuses stale same-named copies under
+changes. They also refuse stale same-named copies under
 `${CODEX_HOME:-$HOME/.codex}/skills`, because duplicate discovery entries can
 drift or both appear in a picker. Back up and remove any legacy copies first,
 then rerun the installer. Restart the client if an updated skill does not

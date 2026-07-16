@@ -20,7 +20,9 @@ class ReadmeInstallTests(unittest.TestCase):
         end = text.index("```", marker)
         return text[marker:end]
 
-    def fixture(self, root: Path) -> tuple[Path, dict[str, str], list[Path]]:
+    def fixture(
+        self, root: Path
+    ) -> tuple[Path, dict[str, str], list[Path], list[Path]]:
         checkout = root / "checkout"
         repository = checkout / "dispatch-compiler"
         (repository / "calibrate-model-routing").mkdir(parents=True)
@@ -32,12 +34,16 @@ class ReadmeInstallTests(unittest.TestCase):
         environment = os.environ.copy()
         environment.update({"HOME": str(home), "CODEX_HOME": str(codex_home)})
         destinations = [
-            codex_home / "skills" / "dispatch-compiler",
-            codex_home / "skills" / "calibrate-model-routing",
+            home / ".agents" / "skills" / "dispatch-compiler",
+            home / ".agents" / "skills" / "calibrate-model-routing",
             home / ".claude" / "skills" / "dispatch-compiler",
             home / ".claude" / "skills" / "calibrate-model-routing",
         ]
-        return checkout, environment, destinations
+        legacy_codex_paths = [
+            codex_home / "skills" / "dispatch-compiler",
+            codex_home / "skills" / "calibrate-model-routing",
+        ]
+        return checkout, environment, destinations, legacy_codex_paths
 
     def run_installer(self, cwd: Path, environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -50,7 +56,7 @@ class ReadmeInstallTests(unittest.TestCase):
 
     def test_rerun_is_a_noop_for_all_four_exact_links(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            checkout, environment, destinations = self.fixture(Path(directory))
+            checkout, environment, destinations, _ = self.fixture(Path(directory))
             first = self.run_installer(checkout, environment)
             self.assertEqual(first.returncode, 0, first.stderr)
             source = Path(os.path.realpath(checkout)) / "dispatch-compiler"
@@ -79,7 +85,7 @@ class ReadmeInstallTests(unittest.TestCase):
             with self.subTest(collision_index=collision_index):
                 with tempfile.TemporaryDirectory() as directory:
                     root = Path(directory)
-                    checkout, environment, destinations = self.fixture(root)
+                    checkout, environment, destinations, _ = self.fixture(root)
                     mismatch = destinations[collision_index]
                     mismatch.parent.mkdir(parents=True, exist_ok=True)
                     wrong_target = root / "wrong-source"
@@ -106,7 +112,7 @@ class ReadmeInstallTests(unittest.TestCase):
             with self.subTest(collision_index=collision_index):
                 with tempfile.TemporaryDirectory() as directory:
                     root = Path(directory)
-                    checkout, environment, destinations = self.fixture(root)
+                    checkout, environment, destinations, _ = self.fixture(root)
                     collision = destinations[collision_index]
                     collision.mkdir(parents=True)
                     sentinel = collision / "sentinel.txt"
@@ -128,6 +134,24 @@ class ReadmeInstallTests(unittest.TestCase):
                                 destination.exists() or destination.is_symlink(),
                                 f"partially installed {destination}",
                             )
+
+    def test_legacy_codex_specific_copy_stops_before_installing(self) -> None:
+        for legacy_index in range(2):
+            with self.subTest(legacy_index=legacy_index):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    checkout, environment, destinations, legacy_paths = self.fixture(root)
+                    legacy = legacy_paths[legacy_index]
+                    legacy.mkdir(parents=True)
+                    (legacy / "SKILL.md").write_text("old duplicate\n")
+
+                    result = self.run_installer(checkout, environment)
+
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("duplicate Codex-specific skill", result.stderr)
+                    self.assertTrue(legacy.is_dir())
+                    for destination in destinations:
+                        self.assertFalse(destination.exists() or destination.is_symlink())
 
 
 if __name__ == "__main__":

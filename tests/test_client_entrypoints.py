@@ -3,6 +3,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DISPATCH_METADATA = ROOT / "agents" / "openai.yaml"
 CODEX_METADATA = ROOT / "calibrate-model-routing" / "agents" / "openai.yaml"
 CLAUDE_ENTRYPOINT = ROOT / "calibrate-model-routing-claude"
 CLAUDE_SKILL = CLAUDE_ENTRYPOINT / "SKILL.md"
@@ -18,6 +19,15 @@ policy:
   allow_implicit_invocation: false
 """
 
+EXPECTED_DISPATCH_METADATA = """interface:
+  display_name: "Dispatch Compiler"
+  short_description: "Compile evidence into dispatchable agent work"
+  default_prompt: "Use $dispatch-compiler to turn this charter or evidence into proof-gated, merge-safe successor work."
+
+policy:
+  allow_implicit_invocation: true
+"""
+
 EXPECTED_CLAUDE_FRONTMATTER = """---
 name: calibrate-model-routing
 description: Refresh the shared Codex and Claude model-routing calibration from current official provider documentation. Use only when the user explicitly invokes this skill after provider model, effort, alias, availability, or guidance changes.
@@ -27,6 +37,9 @@ disable-model-invocation: true
 
 
 class ClientEntrypointTests(unittest.TestCase):
+    def test_dispatch_compiler_explicitly_allows_implicit_invocation(self) -> None:
+        self.assertEqual(DISPATCH_METADATA.read_text(), EXPECTED_DISPATCH_METADATA)
+
     def test_codex_entrypoint_uses_exact_manual_only_metadata(self) -> None:
         self.assertEqual(CODEX_METADATA.read_text(), EXPECTED_CODEX_METADATA)
 
