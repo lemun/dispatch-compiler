@@ -217,6 +217,38 @@ lane-isolation rules, escalation triggers. Start from
 example for a mobile team running Conductor-style worktree lanes at
 [profiles/mobile-app-parallel-lanes.example.md](profiles/mobile-app-parallel-lanes.example.md).
 
+Two built-in Homies profiles keep repository policy out of the generic skill:
+[profiles/homies-nextjs.md](profiles/homies-nextjs.md) and
+[profiles/homies-react-native.md](profiles/homies-react-native.md). The
+compiler selects them only for those exact repository names unless the caller
+supplies a profile explicitly.
+
+## Companion grill front ends
+
+The optional companion skills separate judgment from compilation:
+
+- `grill-me` owns deliberation. It runs the one-decision-at-a-time interview
+  and stops with a decision record unless the user explicitly asks to compile,
+  dispatch, or file the result.
+- `grill-walk` owns evidence collection and owner ratification across a live
+  artifact or code-grounded fallback. It emits a structured handoff, then must
+  invoke `dispatch-compiler` for lane carving, packet schema, model routing,
+  tracker mutation, and closeout.
+
+Install their single versioned source for both Codex and Claude:
+
+```bash
+bash scripts/install-grill-frontends.sh
+```
+
+The installer creates direct links under `~/.agents/skills` and
+`~/.claude/skills`, is safe to rerun, and refuses all collisions before making
+changes. It also refuses stale same-named copies under
+`${CODEX_HOME:-$HOME/.codex}/skills`, because duplicate discovery entries can
+drift or both appear in a picker. Back up and remove any legacy copies first,
+then rerun the installer. Restart the client if an updated skill does not
+appear immediately.
+
 ## Model routing calibration
 
 Model guidance changes faster than issue templates. Run
@@ -252,12 +284,21 @@ confidence.
 ```text
 dispatch-compiler/
 ├── SKILL.md                    # the agent workflow (Agent Skills format)
+├── grill-me/SKILL.md           # deliberation wrapper; dispatch is opt-in
+├── grill-me-claude/            # Claude manual-only entrypoint
+│   ├── SKILL.md
+│   └── WORKFLOW.md -> ../grill-me/SKILL.md
+├── grill-walk/SKILL.md         # evidence and ratification front end
+├── scripts/
+│   └── install-grill-frontends.sh
 ├── templates/
 │   ├── successor-issue.md
 │   ├── dispatch-calibration.md
 │   ├── source-closeout-comment.md
 │   └── project-profile.md
 ├── profiles/
+│   ├── homies-nextjs.md
+│   ├── homies-react-native.md
 │   └── mobile-app-parallel-lanes.example.md
 ├── examples/
 │   ├── worked-example.md        # fuzzy owner complaint → four issues + closeout

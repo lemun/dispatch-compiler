@@ -16,10 +16,20 @@ fallback path. Match that standard of concreteness.
 ## Load Context
 
 1. Identify the source charter: issue, product surface, complaint, research
-   note, code finding, screenshot, log, or artifact.
-2. Read the project profile if one exists. Profiles define local labels, proof
+   note, code finding, screenshot, log, artifact, or structured compilation
+   handoff from an upstream judgment skill.
+2. When the input is a compilation handoff, preserve its ratified findings,
+   vetoes, deliberate non-items, evidence paths, territory anchors, sequencing
+   observations, and unresolved owner calls. Do not re-grill ratified decisions.
+   Re-verify only the current code, evidence, lane boundaries, and proof gates
+   needed to compile the work safely.
+3. Read the project profile if one exists. Profiles define local labels, proof
    gates, model policy, branch rules, runtime rules, and closeout conventions.
-3. Resolve `CALIBRATION_HELPER` to the absolute path of
+   When no profile is supplied explicitly, use `profiles/homies-nextjs.md` for
+   the `homies-nextjs` repository and `profiles/homies-react-native.md` for the
+   `homies-react-native` repository. Do not infer either profile for a different
+   repository merely because it uses the same framework.
+4. Resolve `CALIBRATION_HELPER` to the absolute path of
    `calibrate-model-routing/scripts/calibration_snapshot.py` relative to this
    root `SKILL.md`, then run exactly:
 
@@ -37,7 +47,7 @@ fallback path. Match that standard of concreteness.
    Emit the stale-snapshot reminder in chat only.
    The warning, snapshot age, verification date, and other calibration metadata
    must not appear in a generated issue or packet.
-4. Re-verify current state before filing or closing anything. Treat old issue
+5. Re-verify current state before filing or closing anything. Treat old issue
    text, stale screenshots, and prior notes as leads until current evidence
    confirms them.
 

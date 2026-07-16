@@ -1,0 +1,7 @@
+interface:
+  display_name: "Grill Walk"
+  short_description: "Turn a live walk into dispatchable evidence"
+  default_prompt: "Use $grill-walk to walk this artifact, ratify findings, and compile the result into dispatchable work."
+
+policy:
+  allow_implicit_invocation: true

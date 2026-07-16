@@ -58,6 +58,15 @@ class MarkdownContractTests(unittest.TestCase):
         self.assertIn("~/.agents/model-routing/calibration.md", text)
         self.assertIn("Calibration is never scheduled", text)
 
+    def test_readme_explains_the_companion_grill_frontends(self) -> None:
+        text = (ROOT / "README.md").read_text()
+        self.assertIn("## Companion grill front ends", text)
+        self.assertIn("scripts/install-grill-frontends.sh", text)
+        self.assertIn("`grill-me` owns deliberation", text)
+        self.assertIn("`grill-walk` owns evidence collection", text)
+        self.assertIn("profiles/homies-nextjs.md", text)
+        self.assertIn("profiles/homies-react-native.md", text)
+
     def test_calibrator_preflights_and_preserves_mixed_refresh_outcomes(self) -> None:
         text = (ROOT / "calibrate-model-routing" / "SKILL.md").read_text()
         normalized = " ".join(text.split())
