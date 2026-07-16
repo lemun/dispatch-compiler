@@ -169,6 +169,14 @@ def validate_snapshot(snapshot: str, today: date | None = None) -> None:
     _frontmatter(snapshot)
     if "# Model routing calibration\n" not in snapshot:
         raise SnapshotError("snapshot needs the model routing calibration title")
+    for display in PROVIDERS.values():
+        heading_count = len(
+            re.findall(rf"(?m)^## {re.escape(display)}$", snapshot)
+        )
+        if heading_count != 1:
+            raise SnapshotError(
+                f"snapshot must contain exactly one ## {display} section"
+            )
     codex_start, _ = _section_bounds(snapshot, "codex")
     claude_start, _ = _section_bounds(snapshot, "claude")
     if codex_start >= claude_start:

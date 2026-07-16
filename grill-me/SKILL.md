@@ -5,8 +5,17 @@ description: A relentless interview to sharpen a plan or design, with an optiona
 
 # Grill Me
 
-Run a `/grilling` session and preserve its one-consequential-decision-at-a-time
-discipline.
+Interview the user relentlessly about the plan or design until both sides reach
+a shared understanding.
+
+- Ask one question at a time and wait for the answer before continuing.
+- For each question, provide a recommended answer and the reason for it.
+- Walk dependencies between decisions in order instead of batching unrelated
+  questions.
+- If a fact can be found by inspecting the codebase or supplied artifacts, look
+  it up instead of asking the user. Keep product and design decisions with the
+  user.
+- Do not enact the plan until the user confirms the shared understanding.
 
 If, after the decisions are ratified, the user asks to compile, dispatch, or
 file the result, invoke `dispatch-compiler` with the ratified decision record
