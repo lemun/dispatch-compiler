@@ -170,8 +170,12 @@ def validate_snapshot(snapshot: str, today: date | None = None) -> None:
     if "# Model routing calibration\n" not in snapshot:
         raise SnapshotError("snapshot needs the model routing calibration title")
     for display in PROVIDERS.values():
+        provider_heading = (
+            rf"(?m)^ {{0,3}}##[ \t]+{re.escape(display)}"
+            rf"(?:[ \t]+#+)?[ \t]*$"
+        )
         heading_count = len(
-            re.findall(rf"(?m)^## {re.escape(display)}$", snapshot)
+            re.findall(provider_heading, snapshot)
         )
         if heading_count != 1:
             raise SnapshotError(

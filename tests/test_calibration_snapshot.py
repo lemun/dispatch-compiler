@@ -138,21 +138,28 @@ class SnapshotTests(unittest.TestCase):
             snapshot.validate_provider_section("codex", bad)
 
     def test_rejects_duplicate_provider_sections(self) -> None:
-        duplicates = {
-            "codex": CODEX.replace(
-                "2026-07-14",
-                "2099-01-01",
-            ).replace(
-                "https://developers.openai.com/api/docs/guides/latest-model",
-                "https://example.com/unofficial",
-            ),
-            "claude": CLAUDE,
-        }
-        for provider, duplicate in duplicates.items():
-            with self.subTest(provider=provider):
+        providers = {"codex": CODEX, "claude": CLAUDE}
+        heading_variants = (
+            "## {display}",
+            "## {display} ",
+            "## {display}\t",
+            "## {display} ##",
+            "   ## {display}",
+        )
+        for provider, section in providers.items():
+            display = snapshot.PROVIDERS[provider]
+            malicious = section.replace("2026-07-14", "2099-01-01")
+            for heading_variant in heading_variants:
+                duplicate = malicious.replace(
+                    f"## {display}",
+                    heading_variant.format(display=display),
+                    1,
+                )
                 candidate = full_snapshot() + "\n" + duplicate
-                with self.assertRaisesRegex(snapshot.SnapshotError, "exactly one"):
-                    snapshot.validate_snapshot(candidate, today=date(2026, 7, 14))
+                case = heading_variant.format(display=display)
+                with self.subTest(provider=provider, heading=case):
+                    with self.assertRaisesRegex(snapshot.SnapshotError, "exactly one"):
+                        snapshot.validate_snapshot(candidate, today=date(2026, 7, 14))
 
     def test_rejects_official_url_outside_official_sources_list(self) -> None:
         bad = CODEX.replace(
