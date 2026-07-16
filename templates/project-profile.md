@@ -31,11 +31,17 @@ Use this file to keep project-specific policy out of the core
 
 ## Model Policy
 
+- Allowed Codex models:
+- Unavailable Codex tiers:
+- Allowed Claude models:
+- Unavailable Claude tiers:
 - Shipping lane default:
 - When frontier or senior review is mandatory:
 - Helper agent allowed tasks:
 - Helper agent forbidden tasks:
+- Low-cost shipping ownership: forbidden | mechanically-certain only | allowed
 - Low-cost model stop conditions:
+- Do not rank providers: true
 
 ## Proof Gates
 

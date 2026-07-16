@@ -1,0 +1,7 @@
+interface:
+  display_name: "Calibrate Model Routing"
+  short_description: "Refresh Codex and Claude model routing guidance"
+  default_prompt: "Use $calibrate-model-routing to refresh shared model and effort guidance from official sources."
+
+policy:
+  allow_implicit_invocation: false

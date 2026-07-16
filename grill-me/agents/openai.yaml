@@ -1,0 +1,7 @@
+interface:
+  display_name: "Grill Me"
+  short_description: "Sharpen one decision at a time"
+  default_prompt: "Use $grill-me to interrogate this plan one consequential decision at a time."
+
+policy:
+  allow_implicit_invocation: false

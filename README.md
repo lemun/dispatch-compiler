@@ -55,21 +55,77 @@ starting from a flaky CI log with no runtime access at all, is in
 git clone https://github.com/lemun/dispatch-compiler.git
 ```
 
-Install as a skill (pick your harness — the format is the same file):
+Install the compiler and optional calibrator for both harnesses. The helper is
+safe to rerun: it accepts only an existing symlink with the exact intended
+target and refuses every mismatch or non-symlink collision.
 
 ```bash
-# Claude Code
-mkdir -p ~/.claude/skills
-ln -s "$PWD/dispatch-compiler" ~/.claude/skills/dispatch-compiler
+# Install all four skill links with collision checks
+REPO_ROOT="$(pwd -P)/dispatch-compiler"
 
-# Codex
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-ln -s "$PWD/dispatch-compiler" "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler"
+skill_sources=(
+  "$REPO_ROOT"
+  "$REPO_ROOT/calibrate-model-routing"
+  "$REPO_ROOT"
+  "$REPO_ROOT/calibrate-model-routing-claude"
+)
+skill_destinations=(
+  "$HOME/.agents/skills/dispatch-compiler"
+  "$HOME/.agents/skills/calibrate-model-routing"
+  "$HOME/.claude/skills/dispatch-compiler"
+  "$HOME/.claude/skills/calibrate-model-routing"
+)
+legacy_codex_destinations=(
+  "${CODEX_HOME:-$HOME/.codex}/skills/dispatch-compiler"
+  "${CODEX_HOME:-$HOME/.codex}/skills/calibrate-model-routing"
+)
 
-# Anything else (Cursor, Gemini CLI, OpenCode, ...)
-# Either use your harness's skills directory, or just paste SKILL.md into
-# context and point the agent at templates/.
+preflight_skill_links() {
+  for source_path in "${skill_sources[@]}"; do
+    if [ ! -e "$source_path" ]; then
+      echo "Source does not exist: $source_path" >&2
+      return 1
+    fi
+  done
+
+  for legacy_path in "${legacy_codex_destinations[@]}"; do
+    if [ -e "$legacy_path" ] || [ -L "$legacy_path" ]; then
+      echo "Refusing to install while duplicate Codex-specific skill exists: $legacy_path" >&2
+      echo "Back it up, remove it, and rerun this installer." >&2
+      return 1
+    fi
+  done
+
+  for index in "${!skill_destinations[@]}"; do
+    source_path="${skill_sources[$index]}"
+    destination_path="${skill_destinations[$index]}"
+    if [ -L "$destination_path" ]; then
+      existing_target="$(readlink "$destination_path")"
+      if [ "$existing_target" != "$source_path" ]; then
+        echo "Refusing to replace $destination_path: symlink targets $existing_target, expected $source_path" >&2
+        return 1
+      fi
+    elif [ -e "$destination_path" ]; then
+      echo "Refusing to replace $destination_path: path exists and is not a symlink" >&2
+      return 1
+    fi
+  done
+}
+
+preflight_skill_links || exit 1
+
+for index in "${!skill_destinations[@]}"; do
+  destination_path="${skill_destinations[$index]}"
+  if [ ! -L "$destination_path" ]; then
+    mkdir -p "$(dirname "$destination_path")"
+    ln -s "${skill_sources[$index]}" "$destination_path"
+  fi
+done
 ```
+
+For another harness (Cursor, Gemini CLI, OpenCode, and similar), use its
+skills directory or place `SKILL.md` in context and point the agent at
+`templates/`.
 
 Create the four labels in a target repo (skip if you use different names —
 the workflow only needs the four states, not these exact strings):
@@ -120,12 +176,15 @@ Every successor issue is built from
 - Complexity:
 - Risk:
 - Cost posture:
-- Recommended Claude lane + effort:
-- Recommended Codex lane + effort:
 - Helper agents:
 - Parallel safety:
 - Escalation triggers:
 - Proof gate:
+
+## Model routing
+
+- Codex:
+- Claude:
 ```
 
 Calibration is the cost-control mechanism, and it optimizes for **mergeable
@@ -170,6 +229,54 @@ lane-isolation rules, escalation triggers. Start from
 example for a mobile team running Conductor-style worktree lanes at
 [profiles/mobile-app-parallel-lanes.example.md](profiles/mobile-app-parallel-lanes.example.md).
 
+Two built-in Homies profiles keep repository policy out of the generic skill:
+[profiles/homies-nextjs.md](profiles/homies-nextjs.md) and
+[profiles/homies-react-native.md](profiles/homies-react-native.md). The
+compiler selects them only for those exact repository names unless the caller
+supplies a profile explicitly.
+
+## Companion grill front ends
+
+The optional companion skills separate judgment from compilation:
+
+- `grill-me` owns deliberation. It runs the one-decision-at-a-time interview
+  and stops with a decision record unless the user explicitly asks to compile,
+  dispatch, or file the result.
+- `grill-walk` owns evidence collection and owner ratification across a live
+  artifact or code-grounded fallback. It emits a structured handoff, then must
+  invoke `dispatch-compiler` for lane carving, packet schema, model routing,
+  tracker mutation, and closeout.
+
+Install their single versioned source for both Codex and Claude:
+
+```bash
+bash scripts/install-grill-frontends.sh
+```
+
+The installers create direct links under `~/.agents/skills` and
+`~/.claude/skills`, is safe to rerun, and refuses all collisions before making
+changes. They also refuse stale same-named copies under
+`${CODEX_HOME:-$HOME/.codex}/skills`, because duplicate discovery entries can
+drift or both appear in a picker. Back up and remove any legacy copies first,
+then rerun the installer. Restart the client if an updated skill does not
+appear immediately.
+
+## Model routing calibration
+
+Model guidance changes faster than issue templates. Run
+`$calibrate-model-routing` manually after OpenAI or Anthropic announces a
+relevant model, effort, alias, availability, or guidance change, or when the
+compiler reports that the 30-day snapshot is stale.
+
+The calibrator writes `~/.agents/model-routing/calibration.md`. The compiler
+then routes every new packet independently from that snapshot, the project
+profile, and the packet's complexity, risk, ambiguity, autonomy, and proof
+burden. Packets receive two compact lines: one for Codex users and one for
+Claude users. Neither line recommends a provider over the other.
+
+Calibration is never scheduled, never runs during every grill, and never
+rewrites existing packets.
+
 ## Closeout discipline
 
 A source issue doesn't just get closed — it ends with a dispatch ledger
@@ -189,12 +296,21 @@ confidence.
 ```text
 dispatch-compiler/
 ├── SKILL.md                    # the agent workflow (Agent Skills format)
+├── grill-me/SKILL.md           # deliberation wrapper; dispatch is opt-in
+├── grill-me-claude/            # Claude manual-only entrypoint
+│   ├── SKILL.md
+│   └── WORKFLOW.md -> ../grill-me/SKILL.md
+├── grill-walk/SKILL.md         # evidence and ratification front end
+├── scripts/
+│   └── install-grill-frontends.sh
 ├── templates/
 │   ├── successor-issue.md
 │   ├── dispatch-calibration.md
 │   ├── source-closeout-comment.md
 │   └── project-profile.md
 ├── profiles/
+│   ├── homies-nextjs.md
+│   ├── homies-react-native.md
 │   └── mobile-app-parallel-lanes.example.md
 ├── examples/
 │   ├── worked-example.md        # fuzzy owner complaint → four issues + closeout
@@ -204,7 +320,8 @@ dispatch-compiler/
 
 ## What this does not do
 
-- It does not make model routing automatic.
+- It does not choose a provider for the user or refresh model guidance without
+  an explicit calibration run.
 - It does not replace owner judgment.
 - It does not guarantee that parallel lanes will merge cleanly.
 - It does not turn weak evidence into ready work.

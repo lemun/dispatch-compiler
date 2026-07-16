@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dispatch Compiler"
+  short_description: "Compile evidence into dispatchable agent work"
+  default_prompt: "Use $dispatch-compiler to turn this charter or evidence into proof-gated, merge-safe successor work."
+
+policy:
+  allow_implicit_invocation: true
